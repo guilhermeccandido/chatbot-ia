@@ -1,0 +1,28 @@
+.messageBubble {
+  padding: 12px 18px;
+  border-radius: 22px;
+  max-width: 80%;
+  word-wrap: break-word;
+  line-height: 1.4;
+  font-size: 15px;
+}
+
+.user {
+  align-self: flex-end;
+  background-color: #007aff;
+  color: white;
+}
+
+.bot {
+  align-self: flex-start;
+  background-color: #e5e5ea;
+  color: black;
+}
+
+.typingIndicator {
+  align-self: flex-start;
+  color: #8e8e93;
+  font-size: 14px;
+  font-style: italic;
+  padding: 10px 15px;
+}
