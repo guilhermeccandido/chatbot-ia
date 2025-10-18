@@ -32,7 +32,7 @@ Siga os passos abaixo para configurar e rodar o projeto localmente.
 
 ```bash
 # Se você estiver clonando o projeto completo
-git clone <url-do-seu-repositorio>
+git clone <[url-do-seu-repositorio](https://github.com/guilhermeccandido/chatbot-ia.git)>
 cd chatbot-backend
 ```
 
