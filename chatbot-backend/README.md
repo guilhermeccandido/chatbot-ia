@@ -78,7 +78,7 @@ Para criar as tabelas no banco de dados, execute o script de migração em Pytho
 pip install psycopg2-binary
 
 # Execute o script
-python ./migration/migration-chatbot.py
+python ./migration.py
 ```
 
 ### **7. Inicie o Servidor**
