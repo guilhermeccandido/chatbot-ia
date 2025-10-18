@@ -14,8 +14,6 @@ O projeto é dividido em duas partes principais, contidas neste monorepo:
 - **Banco de Dados**: O PostgreSQL, rodando em um container Docker, armazena todas as informações de forma persistente.
 - **Inteligência Artificial**: A integração com a API da OpenAI permite que o chatbot forneça respostas inteligentes e contextuais.
 
-![Estrutura do Projeto](https://i.imgur.com/link-para-uma-imagem-da-arquitetura.png)
-
 ## ⚙️ Como Executar o Projeto Completo
 
 Para rodar a aplicação, você precisará configurar e iniciar tanto o back-end quanto o front-end.
