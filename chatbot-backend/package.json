@@ -7,7 +7,7 @@
     "dev": "nodemon src/app.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Guilherme",
   "license": "ISC",
   "description": "",
   "dependencies": {
