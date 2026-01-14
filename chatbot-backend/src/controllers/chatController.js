@@ -1,9 +1,6 @@
-const db = require("../config/database");
-const OpenAI = require("openai");
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Importa o cliente Prisma configurado (certifique-se de ter criado o arquivo src/config/prisma.js)
+const prisma = require("../config/prisma");
+const { getAIResponse } = require("../services/ai/aiFactory");
 
 const handleChatMessage = async (req, res) => {
   const { companyApiKey } = req.params;
@@ -15,91 +12,84 @@ const handleChatMessage = async (req, res) => {
       .json({ error: "userId e message são obrigatórios." });
   }
 
-  let currentSessionId = sessionId;
-
   try {
-    const companyQuery =
-      "SELECT id, knowledge_base FROM companies WHERE api_key = $1";
-    const companyRes = await db.query(companyQuery, [companyApiKey]);
+    // 1. Busca empresa
+    const company = await prisma.company.findUnique({
+      where: { apiKey: companyApiKey },
+    });
 
-    if (companyRes.rows.length === 0) {
+    if (!company) {
       return res.status(404).json({ error: "Empresa não encontrada." });
     }
-    const companyId = companyRes.rows[0].id;
-    const knowledgeBase = companyRes.rows[0].knowledge_base;
 
-    if (!currentSessionId) {
-      const sessionQuery = `
-        INSERT INTO chat_sessions (company_id, end_user_id) 
-        VALUES ($1, $2) 
-        RETURNING id;
-      `;
-      const sessionRes = await db.query(sessionQuery, [companyId, userId]);
-      currentSessionId = sessionRes.rows[0].id;
+    // 2. Gerencia Sessão
+    let chatSession;
+
+    // Cenário 1: Widget Web (Manda sessionId)
+    if (sessionId) {
+      chatSession = await prisma.chatSession.findUnique({
+        where: { id: Number(sessionId) },
+      });
     }
 
-    const userMessageQuery = `
-      INSERT INTO messages (session_id, sender, message_text) 
-      VALUES ($1, 'USER', $2);
-    `;
-    await db.query(userMessageQuery, [currentSessionId, message]);
+    // Cenário 2: WhatsApp (sessionId null) ou Fallback
+    if (!chatSession) {
+      // Busca última sessão ativa deste usuário
+      chatSession = await prisma.chatSession.findFirst({
+        where: { companyId: company.id, endUserId: userId },
+        orderBy: { createdAt: "desc" },
+      });
 
-    const systemPrompt = `Você é um assistente de atendimento ao cliente. Sua única função é responder à pergunta do usuário baseando-se estritamente na seguinte "Base de Conhecimento". Se a resposta não estiver contida no texto abaixo, você deve dizer que não possui essa informação. Não invente respostas.
+      // Se não existir, cria nova
+      if (!chatSession) {
+        chatSession = await prisma.chatSession.create({
+          data: { companyId: company.id, endUserId: userId },
+        });
+      }
+    }
 
-    Base de Conhecimento:
-    ---
-    ${knowledgeBase || "Nenhuma base de conhecimento fornecida."}
-    ---
-    `;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message },
-      ],
-      temperature: 0.5,
+    // 3. Salva Msg User
+    await prisma.message.create({
+      data: {
+        sessionId: chatSession.id,
+        sender: "USER",
+        messageText: message,
+      },
     });
 
-    const botResponseText = completion.choices[0].message.content.trim();
+    // 4. Chama IA (Factory)
+    const botResponse = await getAIResponse(company, message);
 
-    const botMessageQuery = `
-      INSERT INTO messages (session_id, sender, message_text) 
-      VALUES ($1, 'BOT', $2);
-    `;
-    await db.query(botMessageQuery, [currentSessionId, botResponseText]);
+    // 5. Salva Msg Bot
+    await prisma.message.create({
+      data: {
+        sessionId: chatSession.id,
+        sender: "BOT",
+        messageText: botResponse,
+      },
+    });
 
     res.status(200).json({
-      reply: botResponseText,
-      sessionId: currentSessionId,
+      reply: botResponse,
+      sessionId: chatSession.id,
     });
   } catch (error) {
-    console.error("Erro no chat com IA:", error);
-    res.status(500).json({
-      error: "Erro interno do servidor ao processar a mensagem com IA.",
-    });
+    console.error("Erro Chat Controller:", error);
+    res.status(500).json({ error: "Erro interno no servidor." });
   }
 };
 
 const getMessagesBySession = async (req, res) => {
   const { sessionId } = req.params;
-
   try {
-    const query = `
-      SELECT id, sender, message_text, created_at 
-      FROM messages 
-      WHERE session_id = $1 
-      ORDER BY created_at ASC;
-    `;
-    const { rows } = await db.query(query, [sessionId]);
-    res.status(200).json(rows);
+    const messages = await prisma.message.findMany({
+      where: { sessionId: Number(sessionId) },
+      orderBy: { createdAt: "asc" },
+    });
+    res.status(200).json(messages);
   } catch (error) {
-    console.error("Erro ao buscar mensagens da sessão:", error);
-    res.status(500).json({ error: "Erro interno do servidor." });
+    res.status(500).json({ error: "Erro ao buscar mensagens." });
   }
 };
 
-module.exports = {
-  handleChatMessage,
-  getMessagesBySession,
-};
+module.exports = { handleChatMessage, getMessagesBySession };

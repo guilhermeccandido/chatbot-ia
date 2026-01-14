@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id            Int      @id @default(autoincrement())
+  name          String
+  apiKey        String   @unique @map("api_key") @default(uuid())
+  
+  systemPrompt  String?  @map("system_prompt") @db.Text 
+  knowledgeBase String?  @map("knowledge_base") @db.Text 
+  aiProvider    String   @default("GEMINI") @map("ai_provider")
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  sessions      ChatSession[]
+
+  @@map("companies")
+}
+
+model ChatSession {
+  id        Int       @id @default(autoincrement())
+  companyId Int       @map("company_id")
+  endUserId String    @map("end_user_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  company   Company   @relation(fields: [companyId], references: [id])
+  messages  Message[]
+
+  @@map("chat_sessions")
+}
+
+model Message {
+  id          Int         @id @default(autoincrement())
+  sessionId   Int         @map("session_id")
+  sender      SenderType
+  messageText String      @map("message_text")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  session     ChatSession @relation(fields: [sessionId], references: [id])
+
+  @@map("messages")
+}
+
+enum SenderType {
+  USER
+  BOT
+}
